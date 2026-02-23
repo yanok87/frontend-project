@@ -75,9 +75,13 @@ export const api = {
     const response = await fetch(`${BASE_URL}/posts/${id}`, {
       method: 'DELETE',
     })
-    if (!response.ok) {
+    // JSONPlaceholder returns 200 even for non-existent posts
+    // Only throw error for actual network/server errors
+    if (!response.ok && response.status >= 500) {
       throw new Error('Failed to delete post')
     }
+    // For 200-299 status codes, consider it successful
+    // For 404, also consider it successful (post might not exist in API but that's ok)
   },
 
   // Comments

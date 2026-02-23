@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Container,
   Box,
@@ -19,10 +19,11 @@ import {
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import { usePosts } from '@/contexts/PostsContext'
 import { api, Post } from '@/lib/api'
 import { FixedSizeList as List } from 'react-window'
 
-const ITEM_HEIGHT = 120 // Height of each card in pixels
+const ITEM_HEIGHT = 180 // Height of each card in pixels
 
 export default function PostsPage() {
   return (
@@ -33,29 +34,10 @@ export default function PostsPage() {
 }
 
 function PostsContent() {
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
+  const { posts, loading, removePost } = usePosts()
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
-
-  useEffect(() => {
-    loadPosts()
-  }, [])
-
-  const loadPosts = async () => {
-    try {
-      setLoading(true)
-      setError('')
-      const data = await api.getPosts()
-      setPosts(data)
-    } catch (err) {
-      setError('Failed to load posts. Please try again.')
-      console.error('Error loading posts:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this post?')) {
@@ -63,8 +45,17 @@ function PostsContent() {
     }
 
     try {
-      await api.deletePost(id)
-      setPosts(posts.filter((post) => post.id !== id))
+      // Try to delete from API (for original posts)
+      // If it fails, we'll still remove it locally since JSONPlaceholder doesn't persist anyway
+      try {
+        await api.deletePost(id)
+      } catch (apiError) {
+        // If it's a locally created post (doesn't exist in API), that's fine
+        // We'll still remove it from the local state
+        console.log('Post not found in API (likely locally created), removing from local state')
+      }
+      // Remove from context regardless of API call result
+      removePost(id)
     } catch (err) {
       setError('Failed to delete post. Please try again.')
       console.error('Error deleting post:', err)
@@ -84,50 +75,48 @@ function PostsContent() {
     if (!post) return null
 
     return (
-      <div style={style}>
+      <div style={{ ...style, padding: '8px' }}>
         <Card
           sx={{
-            m: 1,
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
             '&:hover': {
               boxShadow: 4,
             },
-            cursor: 'pointer',
           }}
-          onClick={() => router.push(`/posts/${post.id}`)}
         >
-          <CardContent>
-            <Typography variant="h6" component="div" noWrap>
+          <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+            <Typography variant="h6" component="div" noWrap sx={{ mb: 1 }}>
               {post.title}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }} noWrap>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }} noWrap>
               {post.body}
             </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <Box sx={{ display: 'flex', gap: 1 }}>
               <Chip label={`ID: ${post.id}`} size="small" />
               <Chip label={`User: ${post.userId}`} size="small" variant="outlined" />
             </Box>
           </CardContent>
-          <CardActions sx={{ justifyContent: 'flex-end' }}>
-            <IconButton
+          <CardActions sx={{ justifyContent: 'flex-end', gap: 1, pt: 0, pb: 1, px: 2 }}>
+            <Button
               size="small"
-              onClick={(e) => {
-                e.stopPropagation()
-                router.push(`/posts/${post.id}`)
-              }}
+              startIcon={<EditIcon />}
+              onClick={() => router.push(`/posts/${post.id}`)}
+              variant="outlined"
               color="primary"
             >
-              <EditIcon fontSize="small" />
-            </IconButton>
-            <IconButton
+              Edit
+            </Button>
+            <Button
               size="small"
-              onClick={(e) => {
-                e.stopPropagation()
-                handleDelete(post.id)
-              }}
+              startIcon={<DeleteIcon />}
+              onClick={() => handleDelete(post.id)}
+              variant="outlined"
               color="error"
             >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
+              Delete
+            </Button>
           </CardActions>
         </Card>
       </div>
@@ -183,7 +172,7 @@ function PostsContent() {
         />
       </Paper>
 
-      <Paper>
+      <Paper sx={{ overflow: 'hidden' }}>
         <Box sx={{ height: Math.min(filteredPosts.length * ITEM_HEIGHT, 600), width: '100%' }}>
           {filteredPosts.length > 0 ? (
             <List
@@ -191,6 +180,7 @@ function PostsContent() {
               itemCount={filteredPosts.length}
               itemSize={ITEM_HEIGHT}
               width="100%"
+              style={{ overflowX: 'hidden' }}
             >
               {Row}
             </List>

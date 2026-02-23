@@ -7,34 +7,57 @@ export interface User {
   name: string
 }
 
-// Simple in-memory storage for demo purposes
-// In production, use cookies, localStorage, or a proper auth service
-let currentUser: User | null = null
+const STORAGE_KEY = 'auth_user'
+
+// Helper functions for localStorage (with SSR safety)
+const getStoredUser = (): User | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
+}
+
+const setStoredUser = (user: User | null): void => {
+  if (typeof window === 'undefined') return
+  try {
+    if (user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+    } else {
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+}
 
 export const auth = {
   login: async (email: string, password: string): Promise<User | null> => {
     // Mock login - accept any email/password combination
     // In production, validate against a backend
     if (email && password) {
-      currentUser = {
+      const user: User = {
         id: '1',
         email,
         name: email.split('@')[0],
       }
-      return currentUser
+      setStoredUser(user)
+      return user
     }
     return null
   },
 
   logout: async (): Promise<void> => {
-    currentUser = null
+    setStoredUser(null)
   },
 
   getCurrentUser: (): User | null => {
-    return currentUser
+    return getStoredUser()
   },
 
   isAuthenticated: (): boolean => {
-    return currentUser !== null
+    return getStoredUser() !== null
   },
 }

@@ -20,9 +20,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Check if user is already logged in
+    // Check if user is already logged in from localStorage
     const currentUser = auth.getCurrentUser()
-    setUser(currentUser)
+    if (currentUser) {
+      setUser(currentUser)
+    }
     setLoading(false)
   }, [])
 
