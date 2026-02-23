@@ -16,8 +16,7 @@
     "@mui/icons-material": "^5.16.0",
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
-    "react-window": "^1.8.10",
-    "react-virtual": "^2.10.4"
+    "react-window": "^1.8.10"
   },
   "devDependencies": {
     "typescript": "^5.5.0",
