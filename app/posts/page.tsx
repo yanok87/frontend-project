@@ -10,7 +10,6 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  IconButton,
   Chip,
   Card,
   CardContent,
@@ -19,11 +18,10 @@ import {
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
 import ProtectedRoute from '@/components/ProtectedRoute'
+import PostComments from '@/components/PostComments'
 import { usePosts } from '@/contexts/PostsContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { api, Post } from '@/lib/api'
-import { FixedSizeList as List } from 'react-window'
-
-const ITEM_HEIGHT = 180 // Height of each card in pixels
 
 export default function PostsPage() {
   return (
@@ -35,9 +33,19 @@ export default function PostsPage() {
 
 function PostsContent() {
   const { posts, loading, removePost } = usePosts()
+  const { user } = useAuth()
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const router = useRouter()
+
+  // Check if current user created the post
+  const canEditPost = (post: Post) => {
+    // For locally created posts, check if userId matches
+    // For API posts, we'll use userId 1 as default (since mock auth uses id: '1')
+    const currentUserId = user?.id ? parseInt(user.id) : null
+    return currentUserId !== null && post.userId === currentUserId
+  }
+
 
   const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this post?')) {
@@ -69,59 +77,6 @@ function PostsContent() {
     const query = searchQuery.toLowerCase()
     return posts.filter((post) => post.title.toLowerCase().includes(query))
   }, [posts, searchQuery])
-
-  const Row = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const post = filteredPosts[index]
-    if (!post) return null
-
-    return (
-      <div style={{ ...style, padding: '8px' }}>
-        <Card
-          sx={{
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            '&:hover': {
-              boxShadow: 4,
-            },
-          }}
-        >
-          <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-            <Typography variant="h6" component="div" noWrap sx={{ mb: 1 }}>
-              {post.title}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }} noWrap>
-              {post.body}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Chip label={`ID: ${post.id}`} size="small" />
-              <Chip label={`User: ${post.userId}`} size="small" variant="outlined" />
-            </Box>
-          </CardContent>
-          <CardActions sx={{ justifyContent: 'flex-end', gap: 1, pt: 0, pb: 1, px: 2 }}>
-            <Button
-              size="small"
-              startIcon={<EditIcon />}
-              onClick={() => router.push(`/posts/${post.id}`)}
-              variant="outlined"
-              color="primary"
-            >
-              Edit
-            </Button>
-            <Button
-              size="small"
-              startIcon={<DeleteIcon />}
-              onClick={() => handleDelete(post.id)}
-              variant="outlined"
-              color="error"
-            >
-              Delete
-            </Button>
-          </CardActions>
-        </Card>
-      </div>
-    )
-  }
 
   if (loading) {
     return (
@@ -172,20 +127,60 @@ function PostsContent() {
         />
       </Paper>
 
-      <Paper sx={{ overflow: 'hidden' }}>
-        <Box sx={{ height: Math.min(filteredPosts.length * ITEM_HEIGHT, 600), width: '100%' }}>
+      <Paper>
+        <Box>
           {filteredPosts.length > 0 ? (
-            <List
-              height={Math.min(filteredPosts.length * ITEM_HEIGHT, 600)}
-              itemCount={filteredPosts.length}
-              itemSize={ITEM_HEIGHT}
-              width="100%"
-              style={{ overflowX: 'hidden' }}
-            >
-              {Row}
-            </List>
+            filteredPosts.map((post) => (
+              <Card
+                key={post.id}
+                sx={{
+                  m: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  '&:hover': {
+                    boxShadow: 4,
+                  },
+                }}
+              >
+                <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+                  <Typography variant="h6" component="div" noWrap sx={{ mb: 1 }}>
+                    {post.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }} noWrap>
+                    {post.body}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                    <Chip label={`ID: ${post.id}`} size="small" />
+                    <Chip label={`User: ${post.userId}`} size="small" variant="outlined" />
+                  </Box>
+                  <PostComments postId={post.id} />
+                </CardContent>
+                {canEditPost(post) && (
+                  <CardActions sx={{ justifyContent: 'flex-end', gap: 1, pt: 0, pb: 1, px: 2 }}>
+                    <Button
+                      size="small"
+                      startIcon={<EditIcon />}
+                      onClick={() => router.push(`/posts/${post.id}`)}
+                      variant="outlined"
+                      color="primary"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<DeleteIcon />}
+                      onClick={() => handleDelete(post.id)}
+                      variant="outlined"
+                      color="error"
+                    >
+                      Delete
+                    </Button>
+                  </CardActions>
+                )}
+              </Card>
+            ))
           ) : (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
               <Typography variant="body1" color="text.secondary">
                 No posts found
               </Typography>

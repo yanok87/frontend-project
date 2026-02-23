@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import ThemeRegistry from '@/components/ThemeRegistry'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { PostsProvider } from '@/contexts/PostsContext'
+import { CommentsProvider } from '@/contexts/CommentsContext'
 import Navbar from '@/components/Navbar'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -23,8 +24,10 @@ export default function RootLayout({
         <ThemeRegistry>
           <AuthProvider>
             <PostsProvider>
-              <Navbar />
-              {children}
+              <CommentsProvider>
+                <Navbar />
+                {children}
+              </CommentsProvider>
             </PostsProvider>
           </AuthProvider>
         </ThemeRegistry>

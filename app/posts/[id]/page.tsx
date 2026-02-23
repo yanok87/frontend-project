@@ -15,6 +15,7 @@ import {
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { usePosts } from '@/contexts/PostsContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { api, Post } from '@/lib/api'
 
 export default function EditPostPage() {
@@ -29,15 +30,23 @@ function EditPostContent() {
   const params = useParams()
   const router = useRouter()
   const { posts, updatePost } = usePosts()
+  const { user } = useAuth()
   const postId = parseInt(params.id as string)
 
   const [post, setPost] = useState<Post | null>(null)
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [userId, setUserId] = useState(1)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [unauthorized, setUnauthorized] = useState(false)
+
+  // Check if current user owns the post
+  const canEdit = useCallback((post: Post | null) => {
+    if (!post || !user) return false
+    const currentUserId = parseInt(user.id)
+    return post.userId === currentUserId
+  }, [user])
 
   const loadPost = useCallback(async () => {
     try {
@@ -48,27 +57,35 @@ function EditPostContent() {
       const postFromContext = posts.find((p) => p.id === postId)
       
       if (postFromContext) {
+        if (!canEdit(postFromContext)) {
+          setUnauthorized(true)
+          setLoading(false)
+          return
+        }
         setPost(postFromContext)
         setTitle(postFromContext.title)
         setBody(postFromContext.body)
-        setUserId(postFromContext.userId)
         setLoading(false)
         return
       }
 
       // If not found in context, try to fetch from API (for original API posts)
       const data = await api.getPost(postId)
+      if (!canEdit(data)) {
+        setUnauthorized(true)
+        setLoading(false)
+        return
+      }
       setPost(data)
       setTitle(data.title)
       setBody(data.body)
-      setUserId(data.userId)
     } catch (err) {
       setError('Failed to load post. Please try again.')
       console.error('Error loading post:', err)
     } finally {
       setLoading(false)
     }
-  }, [postId, posts])
+  }, [postId, posts, canEdit])
 
   useEffect(() => {
     if (postId) {
@@ -82,13 +99,14 @@ function EditPostContent() {
     setError('')
 
     try {
+      const currentUserId = user?.id ? parseInt(user.id) : 1
       await api.updatePost(postId, {
         title,
         body,
-        userId,
+        userId: currentUserId,
       })
       // Update the post in the context so it reflects in the list
-      updatePost(postId, { title, body, userId })
+      updatePost(postId, { title, body, userId: currentUserId })
       router.push('/posts')
     } catch (err) {
       setError('Failed to update post. Please try again.')
@@ -104,6 +122,19 @@ function EditPostContent() {
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
           <CircularProgress />
         </Box>
+      </Container>
+    )
+  }
+
+  if (unauthorized) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          You can only edit posts that you created.
+        </Alert>
+        <Button variant="outlined" onClick={() => router.push('/posts')}>
+          Back to Posts
+        </Button>
       </Container>
     )
   }
@@ -131,16 +162,6 @@ function EditPostContent() {
 
       <Paper sx={{ p: 3 }}>
         <Box component="form" onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="User ID"
-            type="number"
-            value={userId}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserId(parseInt(e.target.value) || 1)}
-            margin="normal"
-            required
-            inputProps={{ min: 1 }}
-          />
           <TextField
             fullWidth
             label="Title"

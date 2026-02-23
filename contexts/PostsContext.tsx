@@ -14,6 +14,27 @@ interface PostsContextType {
 
 const PostsContext = createContext<PostsContextType | undefined>(undefined)
 
+const STORAGE_KEY = 'local_posts'
+
+const getStoredPosts = (): Post[] => {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+const setStoredPosts = (posts: Post[]) => {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(posts))
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
 export function PostsProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,10 +42,29 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   const loadPosts = async () => {
     try {
       setLoading(true)
-      const data = await api.getPosts()
-      setPosts(data)
+      const apiPosts = await api.getPosts()
+      const localPosts = getStoredPosts()
+      
+      // Merge API posts with local posts
+      // Local posts (with timestamp IDs > 1000000) take precedence over API posts
+      const apiPostIds = new Set(apiPosts.map(p => p.id))
+      const localPostsOnly = localPosts.filter(p => p.id > 1000000) // Timestamp-based IDs are large
+      
+      // Combine: local posts first, then API posts (excluding any that were replaced by local versions)
+      const mergedPosts = [
+        ...localPostsOnly,
+        ...apiPosts.filter(p => !localPostsOnly.some(lp => lp.id === p.id))
+      ]
+      
+      setPosts(mergedPosts)
+      setStoredPosts(mergedPosts) // Update storage with merged list
     } catch (error) {
       console.error('Error loading posts:', error)
+      // On error, try to load from localStorage
+      const localPosts = getStoredPosts()
+      if (localPosts.length > 0) {
+        setPosts(localPosts)
+      }
     } finally {
       setLoading(false)
     }
@@ -35,18 +75,27 @@ export function PostsProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const addPost = (post: Post) => {
-    // Add new post at the beginning of the list
-    setPosts((prev) => [post, ...prev])
+    setPosts((prev) => {
+      const updated = [post, ...prev]
+      setStoredPosts(updated)
+      return updated
+    })
   }
 
   const updatePost = (id: number, updatedPost: Partial<Post>) => {
-    setPosts((prev) =>
-      prev.map((post) => (post.id === id ? { ...post, ...updatedPost } : post))
-    )
+    setPosts((prev) => {
+      const updated = prev.map((post) => (post.id === id ? { ...post, ...updatedPost } : post))
+      setStoredPosts(updated)
+      return updated
+    })
   }
 
   const removePost = (id: number) => {
-    setPosts((prev) => prev.filter((post) => post.id !== id))
+    setPosts((prev) => {
+      const updated = prev.filter((post) => post.id !== id)
+      setStoredPosts(updated)
+      return updated
+    })
   }
 
   return (

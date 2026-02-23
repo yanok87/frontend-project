@@ -14,6 +14,7 @@ import {
 import { ArrowBack as ArrowBackIcon, Add as AddIcon } from '@mui/icons-material'
 import ProtectedRoute from '@/components/ProtectedRoute'
 import { usePosts } from '@/contexts/PostsContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { api } from '@/lib/api'
 
 export default function CreatePostPage() {
@@ -27,14 +28,16 @@ export default function CreatePostPage() {
 function CreatePostContent() {
   const router = useRouter()
   const { addPost } = usePosts()
+  const { user } = useAuth()
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
-  const [userId, setUserId] = useState(1)
+  const userId = user?.id ? parseInt(user.id) : 1
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    e.stopPropagation() // Prevent event bubbling
     setSaving(true)
     setError('')
 
@@ -44,8 +47,15 @@ function CreatePostContent() {
         body,
         userId,
       })
+      console.log('Created post:', newPost) // Debug log
+      // JSONPlaceholder always returns id: 101 for new posts
+      // Generate a unique ID to avoid ID collisions with other new posts
+      const uniquePost = {
+        ...newPost,
+        id: Date.now(), // Use timestamp as unique ID for locally created posts
+      }
       // Add the new post to the context so it appears in the list
-      addPost(newPost)
+      addPost(uniquePost)
       router.push('/posts')
     } catch (err) {
       setError('Failed to create post. Please try again.')
@@ -78,16 +88,6 @@ function CreatePostContent() {
 
       <Paper sx={{ p: 3 }}>
         <Box component="form" onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            label="User ID"
-            type="number"
-            value={userId}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUserId(parseInt(e.target.value) || 1)}
-            margin="normal"
-            required
-            inputProps={{ min: 1 }}
-          />
           <TextField
             fullWidth
             label="Title"
