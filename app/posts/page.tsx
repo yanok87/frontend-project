@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Container,
   Box,
@@ -14,6 +14,7 @@ import {
   Card,
   CardContent,
   CardActions,
+  Pagination,
 } from '@mui/material'
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
@@ -22,6 +23,8 @@ import PostComments from '@/components/PostComments'
 import { usePosts } from '@/contexts/PostsContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { api, Post } from '@/lib/api'
+
+const POSTS_PER_PAGE = 100
 
 export default function PostsPage() {
   return (
@@ -36,7 +39,34 @@ function PostsContent() {
   const { user } = useAuth()
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const [userNamesByUserId, setUserNamesByUserId] = useState<Record<number, string>>({})
   const router = useRouter()
+
+  // Fetch users to resolve userId -> name
+  useEffect(() => {
+    api.getUsers().then((users) => {
+      const map: Record<number, string> = {}
+      users.forEach((u) => {
+        map[u.id] = u.name
+      })
+      setUserNamesByUserId(map)
+    }).catch(() => {
+      // Keep empty map on error
+    })
+  }, [])
+
+  // Reset to first page when search changes
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery])
+
+  const getAuthorName = (post: Post): string => {
+    if (user && post.userId === parseInt(user.id)) {
+      return user.name
+    }
+    return userNamesByUserId[post.userId] ?? `User ${post.userId}`
+  }
 
   // Check if current user created the post
   const canEditPost = (post: Post) => {
@@ -77,6 +107,12 @@ function PostsContent() {
     const query = searchQuery.toLowerCase()
     return posts.filter((post) => post.title.toLowerCase().includes(query))
   }, [posts, searchQuery])
+
+  const totalPages = Math.ceil(filteredPosts.length / POSTS_PER_PAGE) || 1
+  const paginatedPosts = useMemo(() => {
+    const start = (page - 1) * POSTS_PER_PAGE
+    return filteredPosts.slice(start, start + POSTS_PER_PAGE)
+  }, [filteredPosts, page])
 
   if (loading) {
     return (
@@ -120,17 +156,22 @@ function PostsContent() {
           }}
           sx={{ mb: 2 }}
         />
-        <Chip
-          label={`Showing ${filteredPosts.length} of ${posts.length} posts`}
-          color="primary"
-          variant="outlined"
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Chip
+            label={`${filteredPosts.length} post${filteredPosts.length !== 1 ? 's' : ''} total`}
+            color="primary"
+            variant="outlined"
+          />
+          <Typography variant="body2" color="text.secondary">
+            Page {page} of {totalPages} (100 per page)
+          </Typography>
+        </Box>
       </Paper>
 
       <Paper>
         <Box>
-          {filteredPosts.length > 0 ? (
-            filteredPosts.map((post) => (
+          {paginatedPosts.length > 0 ? (
+            paginatedPosts.map((post) => (
               <Card
                 key={post.id}
                 sx={{
@@ -150,8 +191,11 @@ function PostsContent() {
                     {post.body}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-                    <Chip label={`ID: ${post.id}`} size="small" />
-                    <Chip label={`User: ${post.userId}`} size="small" variant="outlined" />
+                    <Chip
+                      label={getAuthorName(post)}
+                      size="small"
+                      variant="outlined"
+                    />
                   </Box>
                   <PostComments postId={post.id} />
                 </CardContent>
@@ -187,6 +231,19 @@ function PostsContent() {
             </Box>
           )}
         </Box>
+        {totalPages > 1 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+            <Pagination
+              count={totalPages}
+              page={page}
+              onChange={(_, value: number) => setPage(value)}
+              color="primary"
+              size="large"
+              showFirstButton
+              showLastButton
+            />
+          </Box>
+        )}
       </Paper>
     </Container>
   )

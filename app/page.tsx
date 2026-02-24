@@ -40,7 +40,7 @@ export default function Home() {
           Next.js + TypeScript + Material UI
         </Typography>
         <Link href="/login" passHref>
-          <Button variant="contained" size="large">
+          <Button variant="contained" size="large" sx={{ px: 3, py: 1.5 }}>
             Get Started
           </Button>
         </Link>

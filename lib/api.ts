@@ -2,6 +2,15 @@
 
 const BASE_URL = 'https://jsonplaceholder.typicode.com'
 
+function toHumanName(value: string): string {
+  if (!value || typeof value !== 'string') return value
+  return value
+    .trim()
+    .split(/\s+/)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ')
+}
+
 export interface Post {
   userId: number
   id: number
@@ -12,9 +21,19 @@ export interface Post {
 export interface Comment {
   postId: number
   id: number
+  /** Commenter display name (our form) or API subject/title (JSONPlaceholder). */
   name: string
   email: string
   body: string
+  /** Comment subject line (our form). API comments use `name` as subject. */
+  subject?: string
+}
+
+export interface User {
+  id: number
+  name: string
+  username: string
+  email: string
 }
 
 export interface Photo {
@@ -82,6 +101,16 @@ export const api = {
     }
     // For 200-299 status codes, consider it successful
     // For 404, also consider it successful (post might not exist in API but that's ok)
+  },
+
+  // Users
+  getUsers: async (): Promise<User[]> => {
+    const response = await fetch(`${BASE_URL}/users`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch users')
+    }
+    const users: User[] = await response.json()
+    return users.map((u) => ({ ...u, name: toHumanName(u.name) }))
   },
 
   // Comments

@@ -67,6 +67,7 @@ export function CommentsProvider({ children }: { children: ReactNode }) {
       name: commentData.name,
       email: commentData.email,
       body: commentData.body,
+      ...(commentData.subject !== undefined && commentData.subject !== '' && { subject: commentData.subject }),
       id: Date.now(), // Simple ID generation
       postId,
     }

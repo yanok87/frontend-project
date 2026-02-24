@@ -11,9 +11,11 @@ import {
   Paper,
   Alert,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function LoginPage() {
+  const theme = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -50,7 +52,7 @@ export default function LoginPage() {
           alignItems: 'center',
         }}
       >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+        <Paper elevation={0} sx={{ p: 4, width: '100%', border: `1px solid ${theme.palette.divider}` }}>
           <Typography component="h1" variant="h5" align="center" gutterBottom>
             Sign In
           </Typography>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -11,24 +11,58 @@ import {
   Divider,
   Avatar,
   TextField,
+  Chip,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+import { alpha } from '@mui/material/styles'
 import { Comment as CommentIcon, Close as CloseIcon, Send as SendIcon } from '@mui/icons-material'
 import { usePostComments } from '@/hooks/usePostComments'
 import { useComments } from '@/contexts/CommentsContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { api } from '@/lib/api'
+import type { Comment } from '@/lib/api'
 
 interface PostCommentsProps {
   postId: number
 }
 
 export default function PostComments({ postId }: PostCommentsProps) {
+  const theme = useTheme()
   const { comments, loading, error, openComments, closeComments, isOpen } = usePostComments(postId)
   const { addComment } = useComments()
   const { user } = useAuth()
   const [commentName, setCommentName] = useState(user?.name || '')
   const [commentEmail, setCommentEmail] = useState(user?.email || '')
+  const [commentSubject, setCommentSubject] = useState('')
   const [commentBody, setCommentBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [userNameByEmail, setUserNameByEmail] = useState<Record<string, string>>({})
+
+  // Resolve commenter email -> display name (from users API + current user)
+  useEffect(() => {
+    api.getUsers().then((users) => {
+      const map: Record<string, string> = {}
+      users.forEach((u) => {
+        map[u.email] = u.name
+      })
+      if (user?.email) {
+        map[user.email] = user.name
+      }
+      setUserNameByEmail(map)
+    }).catch(() => {
+      if (user?.email) {
+        setUserNameByEmail({ [user.email]: user.name })
+      }
+    })
+  }, [user?.email, user?.name])
+
+  // Commenter display name. For our comments we store it in name; for API comments we resolve from email.
+  const getCommentAuthorName = (comment: Comment): string => {
+    if (user?.email && comment.email === user.email) {
+      return user.name
+    }
+    return userNameByEmail[comment.email] ?? (comment.subject !== undefined ? comment.name : undefined) ?? comment.email ?? 'Anonymous'
+  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -47,9 +81,11 @@ export default function PostComments({ postId }: PostCommentsProps) {
       addComment(postId, {
         name: commentName,
         email: commentEmail,
+        subject: commentSubject.trim() || undefined,
         body: commentBody,
       })
       setCommentBody('')
+      setCommentSubject('')
     } catch (err) {
       console.error('Error adding comment:', err)
     } finally {
@@ -68,7 +104,14 @@ export default function PostComments({ postId }: PostCommentsProps) {
         startIcon={<CommentIcon />}
         onClick={openComments}
         variant="text"
-        sx={{ mt: 1 }}
+        sx={{
+          mt: 1,
+          color: theme.palette.secondary.main,
+          '&:hover': {
+            color: theme.palette.secondary.light,
+            backgroundColor: alpha(theme.palette.secondary.main, 0.08),
+          },
+        }}
       >
         {buttonText}
       </Button>
@@ -109,15 +152,21 @@ export default function PostComments({ postId }: PostCommentsProps) {
             <Box key={comment.id}>
               <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
                 <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                  {comment.email.charAt(0).toUpperCase()}
+                  {(getCommentAuthorName(comment) || '?').charAt(0)}
                 </Avatar>
                 <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="caption" fontWeight="bold">
-                    {comment.name}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                    {comment.email}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={getCommentAuthorName(comment)}
+                      size="small"
+                      sx={{ fontWeight: 600, height: 20 }}
+                    />
+                    {(comment.subject ?? comment.name) && (
+                      <Typography variant="caption" color="text.secondary">
+                        · {comment.subject ?? comment.name}
+                      </Typography>
+                    )}
+                  </Box>
                   <Typography variant="body2" sx={{ mt: 0.5 }}>
                     {comment.body}
                   </Typography>
@@ -143,11 +192,20 @@ export default function PostComments({ postId }: PostCommentsProps) {
           <TextField
             fullWidth
             size="small"
-            label="Name"
+            label="Your name"
             value={commentName}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommentName(e.target.value)}
             margin="dense"
             required
+          />
+          <TextField
+            fullWidth
+            size="small"
+            label="Comment subject"
+            value={commentSubject}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCommentSubject(e.target.value)}
+            margin="dense"
+            placeholder="Optional"
           />
           <TextField
             fullWidth
