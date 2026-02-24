@@ -9,8 +9,8 @@ import {
   TextField,
   Button,
   Paper,
-  CircularProgress,
   Alert,
+  Skeleton,
 } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, Save as SaveIcon } from '@mui/icons-material'
 import ProtectedRoute from '@/components/ProtectedRoute'
@@ -118,10 +118,19 @@ function EditPostContent() {
 
   if (loading) {
     return (
-      <Container maxWidth="md" sx={{ mt: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <CircularProgress />
+      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <Skeleton variant="rounded" width={80} height={36} sx={{ mr: 2 }} />
+          <Skeleton variant="text" width={160} height={40} />
         </Box>
+        <Paper sx={{ p: 3 }}>
+          <Skeleton variant="rounded" width="100%" height={56} sx={{ mb: 2 }} />
+          <Skeleton variant="rounded" width="100%" height={160} sx={{ mb: 3 }} />
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+            <Skeleton variant="rounded" width={90} height={36} />
+            <Skeleton variant="rounded" width={140} height={36} />
+          </Box>
+        </Paper>
       </Container>
     )
   }

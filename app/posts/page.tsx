@@ -8,13 +8,13 @@ import {
   TextField,
   Button,
   Paper,
-  CircularProgress,
   Alert,
   Chip,
   Card,
   CardContent,
   CardActions,
   Pagination,
+  Skeleton,
 } from '@mui/material'
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, Search as SearchIcon } from '@mui/icons-material'
 import { useRouter } from 'next/navigation'
@@ -116,10 +116,37 @@ function PostsContent() {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
-          <CircularProgress />
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Skeleton variant="text" width={220} height={40} />
+          <Skeleton variant="rounded" width={140} height={36} />
         </Box>
+        <Paper sx={{ mb: 2, p: 2 }}>
+          <Skeleton variant="rounded" height={56} sx={{ mb: 2 }} />
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Skeleton variant="rounded" width={120} height={24} />
+            <Skeleton variant="text" width={180} height={24} />
+          </Box>
+        </Paper>
+        <Paper>
+          <Box>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i} sx={{ m: 1 }}>
+                <CardContent sx={{ pb: 1 }}>
+                  <Skeleton variant="text" width="90%" height={32} sx={{ mb: 1 }} />
+                  <Skeleton variant="text" width="100%" height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="70%" height={20} sx={{ mb: 1 }} />
+                  <Skeleton variant="rounded" width={80} height={24} sx={{ mb: 1 }} />
+                  <Skeleton variant="rounded" width={100} height={28} />
+                </CardContent>
+                <CardActions sx={{ justifyContent: 'flex-end', gap: 1, pt: 0, pb: 1, px: 2 }}>
+                  <Skeleton variant="rounded" width={70} height={32} />
+                  <Skeleton variant="rounded" width={70} height={32} />
+                </CardActions>
+              </Card>
+            ))}
+          </Box>
+        </Paper>
       </Container>
     )
   }

@@ -5,13 +5,13 @@ import {
   Box,
   Typography,
   Button,
-  CircularProgress,
   Alert,
   Paper,
   Divider,
   Avatar,
   TextField,
   Chip,
+  Skeleton,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { alpha } from '@mui/material/styles'
@@ -135,9 +135,21 @@ export default function PostComments({ postId }: PostCommentsProps) {
       </Box>
 
       {loading && comments.length === 0 && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-          <CircularProgress size={24} />
-        </Box>
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Box key={i}>
+              <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                <Skeleton variant="circular" width={24} height={24} />
+                <Box sx={{ flexGrow: 1 }}>
+                  <Skeleton variant="rounded" width={100} height={20} sx={{ mb: 0.5 }} />
+                  <Skeleton variant="text" width="100%" />
+                  <Skeleton variant="text" width="80%" />
+                </Box>
+              </Box>
+              {i < 2 && <Divider sx={{ my: 1 }} />}
+            </Box>
+          ))}
+        </Paper>
       )}
 
       {error && (
