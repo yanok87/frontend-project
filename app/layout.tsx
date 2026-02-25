@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import ThemeRegistry from '@/components/ThemeRegistry'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { UsersProvider } from '@/contexts/UsersContext'
 import { PostsProvider } from '@/contexts/PostsContext'
 import { CommentsProvider } from '@/contexts/CommentsContext'
 import Navbar from '@/components/Navbar'
@@ -23,12 +24,14 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeRegistry>
           <AuthProvider>
-            <PostsProvider>
-              <CommentsProvider>
-                <Navbar />
-                {children}
-              </CommentsProvider>
-            </PostsProvider>
+            <UsersProvider>
+              <PostsProvider>
+                <CommentsProvider>
+                  <Navbar />
+                  {children}
+                </CommentsProvider>
+              </PostsProvider>
+            </UsersProvider>
           </AuthProvider>
         </ThemeRegistry>
       </body>

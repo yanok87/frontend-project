@@ -47,7 +47,6 @@ function CreatePostContent() {
         body,
         userId,
       })
-      console.log('Created post:', newPost) // Debug log
       // JSONPlaceholder always returns id: 101 for new posts
       // Generate a unique ID to avoid ID collisions with other new posts
       const uniquePost = {

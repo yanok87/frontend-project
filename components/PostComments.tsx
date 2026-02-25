@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Typography,
@@ -19,7 +19,7 @@ import { Comment as CommentIcon, Close as CloseIcon, Send as SendIcon } from '@m
 import { usePostComments } from '@/hooks/usePostComments'
 import { useComments } from '@/contexts/CommentsContext'
 import { useAuth } from '@/contexts/AuthContext'
-import { api } from '@/lib/api'
+import { useUsers } from '@/contexts/UsersContext'
 import type { Comment } from '@/lib/api'
 
 interface PostCommentsProps {
@@ -31,30 +31,12 @@ export default function PostComments({ postId }: PostCommentsProps) {
   const { comments, loading, error, openComments, closeComments, isOpen } = usePostComments(postId)
   const { addComment } = useComments()
   const { user } = useAuth()
+  const { userNameByEmail } = useUsers()
   const [commentName, setCommentName] = useState(user?.name || '')
   const [commentEmail, setCommentEmail] = useState(user?.email || '')
   const [commentSubject, setCommentSubject] = useState('')
   const [commentBody, setCommentBody] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [userNameByEmail, setUserNameByEmail] = useState<Record<string, string>>({})
-
-  // Resolve commenter email -> display name (from users API + current user)
-  useEffect(() => {
-    api.getUsers().then((users) => {
-      const map: Record<string, string> = {}
-      users.forEach((u) => {
-        map[u.email] = u.name
-      })
-      if (user?.email) {
-        map[user.email] = user.name
-      }
-      setUserNameByEmail(map)
-    }).catch(() => {
-      if (user?.email) {
-        setUserNameByEmail({ [user.email]: user.name })
-      }
-    })
-  }, [user?.email, user?.name])
 
   // Commenter display name. For our comments we store it in name; for API comments we resolve from email.
   const getCommentAuthorName = (comment: Comment): string => {
@@ -69,11 +51,7 @@ export default function PostComments({ postId }: PostCommentsProps) {
     e.stopPropagation() // Prevent event bubbling
     if (!commentBody.trim()) return
 
-    // Validate that we have proper comment data
-    if (!commentName || !commentEmail) {
-      console.error('Cannot create comment: missing name or email')
-      return
-    }
+    if (!commentName || !commentEmail) return
 
     setSubmitting(true)
     try {

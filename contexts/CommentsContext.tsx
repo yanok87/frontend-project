@@ -1,74 +1,50 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
 import { Comment } from '@/lib/api'
+import { getStorageItem, setStorageItem } from '@/lib/storage'
+import { COMMENTS_STORAGE_KEY } from '@/lib/constants'
+import { validateCommentInput } from '@/lib/validation'
 
 interface CommentsContextType {
-  comments: Record<number, Comment[]> // postId -> comments
+  comments: Record<number, Comment[]>
   addComment: (postId: number, comment: Omit<Comment, 'id' | 'postId'>) => void
   getCommentsForPost: (postId: number) => Comment[]
 }
 
+/** Holds only local comments. API comments are loaded per-post in usePostComments and merged there. */
 const CommentsContext = createContext<CommentsContextType | undefined>(undefined)
 
-const STORAGE_KEY = 'local_comments'
-
-const getStoredComments = (): Record<number, Comment[]> => {
-  if (typeof window === 'undefined') return {}
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    return stored ? JSON.parse(stored) : {}
-  } catch {
-    return {}
-  }
-}
-
-const setStoredComments = (comments: Record<number, Comment[]>) => {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(comments))
-  } catch {
-    // Ignore localStorage errors
-  }
+function isValidStoredComment(c: unknown, postId: number): c is Comment {
+  return (
+    !!c &&
+    typeof c === 'object' &&
+    'id' in c &&
+    'postId' in c &&
+    'name' in c &&
+    'email' in c &&
+    'body' in c &&
+    (c as Comment).postId === postId
+  )
 }
 
 export function CommentsProvider({ children }: { children: ReactNode }) {
-  const [comments, setComments] = useState<Record<number, Comment[]>>(() => getStoredComments())
+  const [comments, setComments] = useState<Record<number, Comment[]>>(() => getStorageItem<Record<number, Comment[]>>(COMMENTS_STORAGE_KEY) ?? {})
 
   useEffect(() => {
-    // Load from localStorage on mount
-    const stored = getStoredComments()
-    setComments(stored)
+    const stored = getStorageItem<Record<number, Comment[]>>(COMMENTS_STORAGE_KEY)
+    if (stored) setComments(stored)
   }, [])
 
-  const addComment = (postId: number, commentData: Omit<Comment, 'id' | 'postId'>) => {
-    // Validate comment data - ensure it has required fields
-    if (!commentData.name || !commentData.email || !commentData.body) {
-      console.error('Invalid comment data - missing required fields:', commentData)
-      return
-    }
-
-    // Additional validation: ensure commentData doesn't look like a post
-    // Posts have 'title' and 'userId', comments don't
-    if ('title' in commentData || 'userId' in commentData) {
-      console.error('Rejected: Attempted to add post data as comment:', commentData)
-      return
-    }
-
-    // Ensure we have the correct comment structure
-    if (typeof commentData.name !== 'string' || typeof commentData.email !== 'string' || typeof commentData.body !== 'string') {
-      console.error('Invalid comment data - wrong types:', commentData)
-      return
-    }
-
-    console.log('Adding valid comment for postId:', postId, 'comment:', { name: commentData.name, email: commentData.email, body: commentData.body.substring(0, 50) + '...' })
+  const addComment = useCallback((postId: number, commentData: Omit<Comment, 'id' | 'postId'>) => {
+    if (!validateCommentInput(commentData)) return
 
     const newComment: Comment = {
       name: commentData.name,
       email: commentData.email,
       body: commentData.body,
       ...(commentData.subject !== undefined && commentData.subject !== '' && { subject: commentData.subject }),
-      id: Date.now(), // Simple ID generation
+      id: Date.now(),
       postId,
     }
 
@@ -77,39 +53,29 @@ export function CommentsProvider({ children }: { children: ReactNode }) {
         ...prev,
         [postId]: [...(prev[postId] || []), newComment],
       }
-      setStoredComments(updated)
+      setStorageItem(COMMENTS_STORAGE_KEY, updated)
       return updated
     })
-  }
+  }, [])
 
-  const getCommentsForPost = (postId: number): Comment[] => {
-    const postComments = comments[postId] || []
-    // Validate comments - ensure they have the correct structure
-    return postComments.filter((comment) => {
-      return (
-        comment &&
-        typeof comment === 'object' &&
-        'id' in comment &&
-        'postId' in comment &&
-        'name' in comment &&
-        'email' in comment &&
-        'body' in comment &&
-        comment.postId === postId
-      )
-    })
-  }
-
-  return (
-    <CommentsContext.Provider
-      value={{
-        comments,
-        addComment,
-        getCommentsForPost,
-      }}
-    >
-      {children}
-    </CommentsContext.Provider>
+  const getCommentsForPost = useCallback(
+    (postId: number): Comment[] => {
+      const postComments = comments[postId] || []
+      return postComments.filter((c) => isValidStoredComment(c, postId))
+    },
+    [comments]
   )
+
+  const value = useMemo(
+    () => ({
+      comments,
+      addComment,
+      getCommentsForPost,
+    }),
+    [comments, addComment, getCommentsForPost]
+  )
+
+  return <CommentsContext.Provider value={value}>{children}</CommentsContext.Provider>
 }
 
 export function useComments() {

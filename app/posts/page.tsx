@@ -22,9 +22,9 @@ import ProtectedRoute from '@/components/ProtectedRoute'
 import PostComments from '@/components/PostComments'
 import { usePosts } from '@/contexts/PostsContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { useUsers } from '@/contexts/UsersContext'
 import { api, Post } from '@/lib/api'
-
-const POSTS_PER_PAGE = 100
+import { POSTS_PER_PAGE } from '@/lib/constants'
 
 export default function PostsPage() {
   return (
@@ -37,26 +37,12 @@ export default function PostsPage() {
 function PostsContent() {
   const { posts, loading, removePost } = usePosts()
   const { user } = useAuth()
+  const { userNamesByUserId } = useUsers()
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [page, setPage] = useState(1)
-  const [userNamesByUserId, setUserNamesByUserId] = useState<Record<number, string>>({})
   const router = useRouter()
 
-  // Fetch users to resolve userId -> name
-  useEffect(() => {
-    api.getUsers().then((users) => {
-      const map: Record<number, string> = {}
-      users.forEach((u) => {
-        map[u.id] = u.name
-      })
-      setUserNamesByUserId(map)
-    }).catch(() => {
-      // Keep empty map on error
-    })
-  }, [])
-
-  // Reset to first page when search changes
   useEffect(() => {
     setPage(1)
   }, [searchQuery])
@@ -87,16 +73,15 @@ function PostsContent() {
       // If it fails, we'll still remove it locally since JSONPlaceholder doesn't persist anyway
       try {
         await api.deletePost(id)
-      } catch (apiError) {
-        // If it's a locally created post (doesn't exist in API), that's fine
-        // We'll still remove it from the local state
-        console.log('Post not found in API (likely locally created), removing from local state')
+      } catch {
+        // Locally created posts don't exist in API; still remove from state
       }
-      // Remove from context regardless of API call result
       removePost(id)
     } catch (err) {
       setError('Failed to delete post. Please try again.')
-      console.error('Error deleting post:', err)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting post:', err)
+      }
     }
   }
 
